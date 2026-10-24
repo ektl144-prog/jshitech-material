@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>소재 발주 관리 — JS HITECH VINA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.3/umd/supabase.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6f9;--surface:#fff;--surface2:#f0f3f7;--border:#e3e7ed;
+  --fg:#1a1d23;--fg2:#5a6270;--fg3:#9aa0ad;
+  --accent:#2563eb;--accent-l:#eff4ff;--accent-d:#1d4ed8;
+  --ok:#16a34a;--ok-l:#f0fdf4;--warn:#d97706;--warn-l:#fffbeb;
+  --danger:#dc2626;--danger-l:#fef2f2;
+  --nav:#1e2330;--nav-fg:#c8cdd8;
+  --radius:10px;--shadow:0 1px 4px rgba(0,0,0,.08);
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg:#0f1117;--surface:#1a1d26;--surface2:#23283a;--border:#2e3447;
+  --fg:#e8eaf0;--fg2:#8892a4;--fg3:#525d72;
+  --accent:#3b82f6;--accent-l:#1e2d4a;--accent-d:#60a5fa;
+  --ok:#22c55e;--ok-l:#0f2a1a;--warn:#f59e0b;--warn-l:#2a1f0a;
+  --danger:#ef4444;--danger-l:#2a0f0f;
+  --nav:#12151e;--nav-fg:#8892a4;color-scheme:dark;
+}}
+*,*::before,*::after{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:'Noto Sans KR',sans-serif;font-size:14px;line-height:1.5;}
+
+/* AUTH */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.auth-card{background:var(--surface);border-radius:16px;padding:36px 32px;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,.12);border:1px solid var(--border);}
+.auth-logo{text-align:center;margin-bottom:28px;}
+.auth-logo .co{font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--fg3);text-transform:uppercase;}
+.auth-logo .app{font-size:22px;font-weight:700;color:var(--fg);margin-top:4px;}
+.auth-tabs{display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:24px;}
+.auth-tab{flex:1;padding:9px;text-align:center;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface2);color:var(--fg2);border:none;font-family:inherit;transition:all .15s;}
+.auth-tab.active{background:var(--accent);color:#fff;}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+.field label{font-size:11.5px;font-weight:700;color:var(--fg2);}
+.field input{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--fg);font-size:13px;font-family:inherit;transition:border-color .15s;}
+.field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+.btn-full{width:100%;padding:11px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff;font-family:inherit;margin-top:6px;transition:background .15s;}
+.btn-full:hover{background:var(--accent-d);}
+.btn-full:disabled{opacity:.6;cursor:not-allowed;}
+.auth-msg{text-align:center;font-size:12.5px;margin-top:14px;padding:10px;border-radius:8px;}
+.auth-msg.ok{background:var(--ok-l);color:var(--ok);}
+.auth-msg.err{background:var(--danger-l);color:var(--danger);}
+.auth-msg.warn{background:var(--warn-l);color:var(--warn);}
+
+/* PENDING */
+.pending-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+.pending-card{background:var(--surface);border-radius:16px;padding:40px 32px;max-width:420px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.12);}
+.pending-icon{font-size:48px;margin-bottom:16px;}
+.pending-card h2{font-size:20px;font-weight:700;margin:0 0 10px;}
+.pending-card p{color:var(--fg2);font-size:13.5px;line-height:1.7;}
+.btn-ghost-sm{background:none;border:1px solid var(--border);border-radius:7px;padding:7px 16px;cursor:pointer;color:var(--fg2);font-size:12.5px;font-family:inherit;margin-top:16px;}
+
+/* LAYOUT */
+.app-wrap{display:flex;min-height:100vh;}
+.sidebar{width:228px;flex-shrink:0;background:var(--nav);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;}
+.sidebar-logo{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.07);}
+.sidebar-logo .co{font-size:10px;font-weight:700;letter-spacing:.1em;color:rgba(255,255,255,.3);text-transform:uppercase;margin-bottom:3px;}
+.sidebar-logo .app{font-size:14px;font-weight:700;color:#fff;line-height:1.3;}
+.nav-sec{padding:16px 14px 4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.22);}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 12px;margin:1px 8px;border-radius:7px;cursor:pointer;color:var(--nav-fg);font-size:13px;font-weight:500;transition:background .15s,color .15s;user-select:none;}
+.nav-item:hover{background:rgba(255,255,255,.07);color:#fff;}
+.nav-item.active{background:var(--accent);color:#fff;}
+.nav-icon{font-size:15px;width:20px;text-align:center;}
+.nav-badge{margin-left:auto;background:var(--danger);color:#fff;border-radius:20px;padding:1px 7px;font-size:10px;font-weight:700;}
+.sidebar-bottom{margin-top:auto;padding:10px 8px;border-top:1px solid rgba(255,255,255,.07);}
+.sidebar-user{padding:10px 12px;color:var(--nav-fg);font-size:12px;}
+.sidebar-user .name{font-weight:700;color:#fff;font-size:13px;}
+.sidebar-user .role{font-size:10.5px;margin-top:1px;}
+.sidebar-btn{display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:7px;cursor:pointer;color:var(--nav-fg);font-size:12px;font-weight:500;transition:background .15s;border:none;background:none;font-family:inherit;text-align:left;width:100%;}
+.sidebar-btn:hover{background:rgba(255,255,255,.07);color:#fff;}
+.hamburger{display:none;position:fixed;top:12px;left:12px;z-index:200;background:var(--nav);border:none;border-radius:8px;padding:8px 10px;cursor:pointer;color:#fff;font-size:18px;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:90;}
+.main{margin-left:228px;flex:1;min-width:0;padding:20px 20px 40px;}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+.page-title{font-size:20px;font-weight:700;}
+.page-sub{font-size:12.5px;color:var(--fg2);margin-top:2px;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:background .15s;font-family:inherit;}
+.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover{background:var(--accent-d);}
+.btn-ghost{background:var(--surface2);color:var(--fg);border:1px solid var(--border);}.btn-ghost:hover{background:var(--border);}
+.btn-ok{background:var(--ok);color:#fff;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-sm{padding:5px 10px;font-size:11.5px;}
+.btn-icon{background:none;border:none;cursor:pointer;color:var(--fg3);font-size:16px;padding:2px 4px;border-radius:4px;}.btn-icon:hover{color:var(--fg);}
+
+/* DATE TABS */
+.date-tabs-wrap{display:flex;align-items:center;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;}
+.date-tabs{display:flex;gap:4px;}
+.date-tab{padding:7px 16px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600;white-space:nowrap;background:var(--surface);border:1px solid var(--border);color:var(--fg2);transition:all .15s;}
+.date-tab:hover{border-color:var(--accent);color:var(--accent);}
+.date-tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.date-tab.today{border-color:var(--ok);color:var(--ok);}
+.date-tab.today.active{background:var(--ok);color:#fff;}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--surface);border-radius:var(--radius);padding:15px 18px;box-shadow:var(--shadow);border:1px solid var(--border);}
+.stat-label{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--fg3);text-transform:uppercase;}
+.stat-value{font-size:28px;font-weight:700;margin-top:3px;}
+.stat-note{font-size:11px;color:var(--fg2);margin-top:2px;}
+.stat-warn .stat-value{color:var(--warn);}
+.stat-danger .stat-value{color:var(--danger);}
+.stat-ok .stat-value{color:var(--ok);}
+
+/* CARD */
+.card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:18px;overflow:hidden;}
+.card-header{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap;}
+.card-title{font-size:13.5px;font-weight:700;}
+.filter-row{display:flex;gap:8px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;}
+.filter-row input,.filter-row select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--fg);font-size:12.5px;font-family:inherit;}
+.filter-row input{flex:1;min-width:120px;}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{padding:9px 13px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--fg3);background:var(--surface2);border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:10px 13px;border-bottom:1px solid var(--border);color:var(--fg);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--surface2);}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700;}
+.badge-ok{background:var(--ok-l);color:var(--ok);}
+.badge-warn{background:var(--warn-l);color:var(--warn);}
+.badge-danger{background:var(--danger-l);color:var(--danger);}
+.badge-blue{background:var(--accent-l);color:var(--accent);}
+.badge-gray{background:var(--surface2);color:var(--fg2);}
+
+/* MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:500;display:flex;align-items:center;justify-content:center;padding:12px;}
+.modal-bg[hidden]{display:none!important;}
+.modal{background:var(--surface);border-radius:14px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.28);}
+.modal-head{display:flex;align-items:center;justify-content:space-between;padding:17px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface);z-index:2;}
+.modal-head h2{font-size:15px;font-weight:700;margin:0;}
+.modal-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--fg2);padding:4px;}
+.modal-body{padding:18px 20px;display:flex;flex-direction:column;gap:13px;}
+.modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:13px 20px;border-top:1px solid var(--border);}
+.field2{display:flex;flex-direction:column;gap:4px;}
+.field2 label{font-size:11.5px;font-weight:700;color:var(--fg2);}
+.field2 input,.field2 select,.field2 textarea{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:8px 11px;color:var(--fg);font-size:13px;font-family:inherit;}
+.field2 input:focus,.field2 select:focus{outline:none;border-color:var(--accent);}
+.fields-2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.fields-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;}
+.sec-label{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);padding-bottom:4px;border-bottom:1px solid var(--accent-l);margin-top:4px;}
+
+/* PHOTO */
+.photo-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
+.photo-thumb{position:relative;width:76px;height:76px;border-radius:8px;overflow:hidden;border:1px solid var(--border);}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;cursor:pointer;}
+.photo-thumb .del{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;font-size:11px;cursor:pointer;padding:1px 4px;}
+.photo-add{width:76px;height:76px;border-radius:8px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--fg3);font-size:22px;background:var(--surface2);}
+.photo-add:hover{border-color:var(--accent);color:var(--accent);}
+.photo-viewer{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:900;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.photo-viewer[hidden]{display:none!important;}
+.photo-viewer img{max-width:90vw;max-height:88vh;border-radius:10px;object-fit:contain;}
+
+/* SUPPLIER CHIP */
+.sup-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;background:var(--accent-l);color:var(--accent);border-radius:20px;font-size:11px;font-weight:600;}
+
+/* ALERT */
+.alert-banner{border-radius:var(--radius);padding:11px 15px;margin-bottom:10px;font-size:13px;display:flex;align-items:flex-start;gap:9px;cursor:pointer;}
+.alert-banner.danger{background:var(--danger-l);color:var(--danger);border:1px solid rgba(220,38,38,.2);}
+.alert-banner.warn{background:var(--warn-l);color:var(--warn);border:1px solid rgba(217,119,6,.2);}
+
+/* LANG */
+.lang-toggle{display:flex;border-radius:7px;overflow:hidden;border:1px solid var(--border);}
+.lang-btn{padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;border:none;background:var(--surface);color:var(--fg2);font-family:inherit;}
+.lang-btn.active{background:var(--accent);color:#fff;}
+
+.page{display:none;}
+.page.active{display:block;}
+.empty-state{text-align:center;padding:44px 20px;color:var(--fg3);}
+.empty-state .icon{font-size:34px;margin-bottom:10px;}
+.progress{height:5px;background:var(--border);border-radius:3px;overflow:hidden;width:72px;display:inline-block;vertical-align:middle;}
+.progress-fill{height:100%;border-radius:3px;}
+
+/* ADMIN */
+.admin-approve-btn{background:var(--ok);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+.admin-reject-btn{background:var(--danger);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-left:4px;}
+
+@media(max-width:700px){
+  .sidebar{transform:translateX(-100%);}
+  .sidebar.open{transform:translateX(0);}
+  .overlay.open{display:block;}
+  .hamburger{display:flex;}
+  .main{margin-left:0;padding-top:52px;}
+  .fields-2,.fields-3{grid-template-columns:1fr;}
+  .stats-row{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="co">JS HITECH VINA</div>
+      <div class="app">소재 발주 관리 시스템</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">로그인</button>
+      <button class="auth-tab" onclick="switchTab('signup')">회원가입</button>
+    </div>
+    <div id="login-form">
+      <div class="field"><label>이메일</label><input id="login-email" type="email" placeholder="email@example.com"></div>
+      <div class="field"><label>비밀번호</label><input id="login-pw" type="password" placeholder="비밀번호"></div>
+      <button class="btn-full" onclick="doLogin()">로그인</button>
+    </div>
+    <div id="signup-form" style="display:none">
+      <div class="field"><label>이름 (한국어 또는 Vietnamese)</label><input id="signup-name" type="text" placeholder="이름/Tên"></div>
+      <div class="field"><label>이메일</label><input id="signup-email" type="email" placeholder="email@example.com"></div>
+      <div class="field"><label>비밀번호 (8자 이상)</label><input id="signup-pw" type="password" placeholder="비밀번호"></div>
+      <button class="btn-full" onclick="doSignup()">회원가입 신청</button>
+    </div>
+    <div id="auth-msg" class="auth-msg" style="display:none"></div>
+  </div>
+</div>
+
+<!-- PENDING APPROVAL -->
+<div id="pending-screen" class="pending-wrap" style="display:none">
+  <div class="pending-card">
+    <div class="pending-icon">⏳</div>
+    <h2>승인 대기 중</h2>
+    <p>회원가입 신청이 완료되었습니다.<br>관리자 승인 후 이용 가능합니다.<br><br>승인되면 다시 로그인해주세요.</p>
+    <button class="btn-ghost-sm" onclick="doLogout()">로그아웃</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen" style="display:none">
+<button class="hamburger" onclick="toggleSidebar()">☰</button>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="co">JS HITECH VINA</div>
+    <div class="app" id="app-title-nav">소재 발주<br>관리 시스템</div>
+  </div>
+  <div class="nav-sec">메뉴</div>
+  <div class="nav-item active" onclick="showPage('dashboard')"><span class="nav-icon">📊</span> <span data-k="대시보드" data-v="Tổng quan"></span></div>
+  <div class="nav-item" onclick="showPage('orders')"><span class="nav-icon">📋</span> <span data-k="발주 관리" data-v="Quản lý đặt hàng"></span></div>
+  <div class="nav-item" onclick="showPage('usage')"><span class="nav-icon">🔧</span> <span data-k="사용 등록" data-v="Đăng ký sử dụng"></span></div>
+  <div class="nav-item" onclick="showPage('ng')"><span class="nav-icon">⚠️</span> <span data-k="NG 처리" data-v="Xử lý NG"></span></div>
+  <div class="nav-item" onclick="showPage('stock')"><span class="nav-icon">📦</span> <span data-k="잔여 재고" data-v="Tồn kho"></span></div>
+  <div class="nav-item" onclick="showPage('suppliers')"><span class="nav-icon">🏭</span> <span data-k="공급업체" data-v="Nhà cung cấp"></span></div>
+  <div class="nav-item" id="nav-admin" style="display:none" onclick="showPage('admin')"><span class="nav-icon">👑</span> <span data-k="관리자" data-v="Quản trị"></span> <span class="nav-badge" id="admin-badge" style="display:none"></span></div>
+  <div class="nav-item" onclick="showPage('alerts')"><span class="nav-icon">🔔</span> <span data-k="이상 알림" data-v="Cảnh báo"></span> <span class="nav-badge" id="alert-badge" style="display:none"></span></div>
+  <div class="sidebar-bottom">
+    <div class="sidebar-user">
+      <div class="name" id="nav-username"></div>
+      <div class="role" id="nav-role"></div>
+    </div>
+    <button class="sidebar-btn" onclick="toggleLang()">🌐 <span id="lang-label">Tiếng Việt</span></button>
+    <button class="sidebar-btn" onclick="doLogout()">🚪 <span data-k="로그아웃" data-v="Đăng xuất"></span></button>
+  </div>
+</nav>
+
+<div class="main">
+
+<!-- DASHBOARD -->
+<div class="page active" id="page-dashboard">
+  <div class="topbar">
+    <div><div class="page-title" data-k="대시보드" data-v="Tổng quan"></div><div class="page-sub" data-k="소재 발주 및 사용 현황" data-v="Tình hình đặt hàng và sử dụng"></div></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="date" id="dash-date" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--fg);font-size:12.5px;font-family:inherit;" onchange="renderAll()">
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('dash-date').value='';renderAll()" data-k="전체" data-v="Tất cả"></button>
+      <button class="btn btn-primary" onclick="openModal('order')" data-k="+ 발주 등록" data-v="+ Đặt hàng mới"></button>
+    </div>
+  </div>
+  <div id="dash-alerts"></div>
+  <div class="stats-row" id="stats-row"></div>
+  <div class="card">
+    <div class="card-header"><span class="card-title" data-k="최근 발주" data-v="Đặt hàng gần đây"></span><button class="btn btn-ghost btn-sm" onclick="showPage('orders')" data-k="전체 →" data-v="Xem tất cả →"></button></div>
+    <div class="table-wrap"><table><thead><tr id="dash-thead"></tr></thead><tbody id="dash-table"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ORDERS -->
+<div class="page" id="page-orders">
+  <div class="topbar">
+    <div><div class="page-title" data-k="발주 관리" data-v="Quản lý đặt hàng"></div></div>
+    <button class="btn btn-primary" onclick="openModal('order')" data-k="+ 발주 등록" data-v="+ Đặt hàng mới"></button>
+  </div>
+  <div class="date-tabs-wrap"><div class="date-tabs" id="order-date-tabs"></div><button class="btn btn-ghost btn-sm" onclick="activeDates.orders=null;renderOrders()" data-k="전체" data-v="Tất cả"></button></div>
+  <div class="card">
+    <div class="filter-row">
+      <input type="text" id="order-search" placeholder="품번·소재 검색" oninput="renderOrders()">
+      <select id="order-cat" onchange="renderOrders()"><option value="">전체 카테고리</option>
+        <option>알루미늄/Nhôm</option><option>스틸/Thép</option><option>스테인리스/SUS</option>
+        <option>폼·우레탄/Foam</option><option>구리·홍동/Đồng</option><option>플라스틱/Nhựa</option><option>기타/Khác</option>
+      </select>
+    </div>
+    <div class="table-wrap"><table><thead><tr id="orders-thead"></tr></thead><tbody id="orders-table"></tbody></table></div>
+  </div>
+</div>
+
+<!-- USAGE -->
+<div class="page" id="page-usage">
+  <div class="topbar">
+    <div><div class="page-title" data-k="사용 등록" data-v="Đăng ký sử dụng"></div></div>
+    <button class="btn btn-primary" onclick="openModal('usage')" data-k="+ 사용 등록" data-v="+ Đăng ký"></button>
+  </div>
+  <div class="date-tabs-wrap"><div class="date-tabs" id="usage-date-tabs"></div><button class="btn btn-ghost btn-sm" onclick="activeDates.usage=null;renderUsage()" data-k="전체" data-v="Tất cả"></button></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr id="usage-thead"></tr></thead><tbody id="usage-table"></tbody></table></div></div>
+</div>
+
+<!-- NG -->
+<div class="page" id="page-ng">
+  <div class="topbar">
+    <div><div class="page-title" data-k="NG 처리" data-v="Xử lý NG"></div></div>
+    <button class="btn btn-primary" onclick="openModal('ng')" data-k="+ NG 등록" data-v="+ Đăng ký NG"></button>
+  </div>
+  <div class="date-tabs-wrap"><div class="date-tabs" id="ng-date-tabs"></div><button class="btn btn-ghost btn-sm" onclick="activeDates.ng=null;renderNg()" data-k="전체" data-v="Tất cả"></button></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr id="ng-thead"></tr></thead><tbody id="ng-table"></tbody></table></div></div>
+</div>
+
+<!-- STOCK -->
+<div class="page" id="page-stock">
+  <div class="topbar"><div><div class="page-title" data-k="잔여 재고" data-v="Tồn kho"></div></div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr id="stock-thead"></tr></thead><tbody id="stock-table"></tbody></table></div></div>
+</div>
+
+<!-- SUPPLIERS -->
+<div class="page" id="page-suppliers">
+  <div class="topbar">
+    <div><div class="page-title" data-k="공급업체" data-v="Nhà cung cấp"></div></div>
+    <button class="btn btn-primary" onclick="openModal('supplier')" data-k="+ 업체 등록" data-v="+ Thêm NCC"></button>
+  </div>
+  <div class="card"><div class="table-wrap"><table><thead><tr id="sup-thead"></tr></thead><tbody id="sup-table"></tbody></table></div></div>
+</div>
+
+<!-- ADMIN -->
+<div class="page" id="page-admin">
+  <div class="topbar"><div><div class="page-title">👑 관리자 — 회원 승인</div></div></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>이름</th><th>이메일</th><th>상태</th><th>가입일</th><th>액션</th></tr></thead><tbody id="admin-table"></tbody></table></div></div>
+</div>
+
+<!-- ALERTS -->
+<div class="page" id="page-alerts">
+  <div class="topbar"><div><div class="page-title" data-k="이상 알림" data-v="Cảnh báo"></div></div></div>
+  <div id="alerts-list"></div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /app-screen -->
+
+<!-- MODALS -->
+<div class="modal-bg" id="modal-order" hidden>
+<div class="modal">
+  <div class="modal-head"><h2 data-k="📋 발주 등록" data-v="📋 Đặt hàng mới"></h2><button class="modal-close" onclick="closeModal('order')">✕</button></div>
+  <div class="modal-body">
+    <div class="sec-label" data-k="기본 정보" data-v="Thông tin cơ bản"></div>
+    <div class="fields-2">
+      <div class="field2"><label data-k="품번 *" data-v="Mã SP *"></label><input id="o-partno" placeholder="D110-25043B"></div>
+      <div class="field2"><label data-k="카테고리 *" data-v="Loại *"></label>
+        <select id="o-cat"><option value="">--</option>
+          <option>알루미늄/Nhôm</option><option>스틸/Thép</option><option>스테인리스/SUS</option>
+          <option>폼·우레탄/Foam</option><option>구리·홍동/Đồng</option><option>플라스틱/Nhựa</option><option>기타/Khác</option>
+        </select>
+      </div>
+    </div>
+    <div class="field2"><label data-k="소재명/규격 *" data-v="Tên/Quy cách *"></label><input id="o-matname" placeholder="AL6061-T6 / 200×100×30t"></div>
+    <div class="fields-3">
+      <div class="field2"><label data-k="발주량 *" data-v="SL đặt *"></label><input id="o-ordered" type="number" min="1"></div>
+      <div class="field2"><label data-k="필요량 *" data-v="SL cần *"></label><input id="o-needed" type="number" min="1"></div>
+      <div class="field2"><label data-k="발주일 *" data-v="Ngày đặt *"></label><input id="o-date" type="date"></div>
+    </div>
+    <div class="fields-2">
+      <div class="field2"><label data-k="발주자" data-v="Người đặt"></label><input id="o-requester"></div>
+      <div class="field2"><label data-k="단가" data-v="Đơn giá"></label><input id="o-price" type="number"></div>
+    </div>
+    <div class="sec-label" data-k="공급업체" data-v="Nhà cung cấp"></div>
+    <div class="fields-2">
+      <div class="field2"><label data-k="공급업체" data-v="NCC"></label><select id="o-supplier"><option value="">-- 선택 --</option></select></div>
+      <div class="field2"><label>LOT번호</label><input id="o-lot" placeholder="LOT-2026-001"></div>
+    </div>
+    <div class="field2"><label data-k="원산지/제조사" data-v="Xuất xứ/NSX"></label><input id="o-origin"></div>
+    <div class="sec-label" data-k="사진" data-v="Ảnh"></div>
+    <div class="photo-grid" id="o-photos">
+      <div class="photo-add" onclick="document.getElementById('o-photo-input').click()">+</div>
+      <input type="file" id="o-photo-input" accept="image/*" multiple style="display:none" onchange="addPhotos('o-photos',this)">
+    </div>
+    <div class="field2"><label data-k="비고" data-v="Ghi chú"></label><input id="o-note"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn btn-ghost" onclick="closeModal('order')" data-k="취소" data-v="Hủy"></button>
+    <button class="btn btn-primary" onclick="saveOrder()" data-k="등록" data-v="Đăng ký"></button>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="modal-usage" hidden>
+<div class="modal">
+  <div class="modal-head"><h2 data-k="🔧 사용 등록" data-v="🔧 Đăng ký SD"></h2><button class="modal-close" onclick="closeModal('usage')">✕</button></div>
+  <div class="modal-body">
+    <div class="field2"><label data-k="발주번호 *" data-v="Số ĐH *"></label><select id="u-order"></select></div>
+    <div class="fields-3">
+      <div class="field2"><label data-k="사용량 *" data-v="SL SD *"></label><input id="u-qty" type="number" min="1"></div>
+      <div class="field2"><label data-k="작업일" data-v="Ngày TH"></label><input id="u-date" type="date"></div>
+      <div class="field2"><label data-k="작업자" data-v="Người TH"></label><input id="u-worker"></div>
+    </div>
+    <div class="sec-label" data-k="사진" data-v="Ảnh"></div>
+    <div class="photo-grid" id="u-photos">
+      <div class="photo-add" onclick="document.getElementById('u-photo-input').click()">+</div>
+      <input type="file" id="u-photo-input" accept="image/*" multiple style="display:none" onchange="addPhotos('u-photos',this)">
+    </div>
+    <div class="field2"><label data-k="비고" data-v="Ghi chú"></label><input id="u-note"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn btn-ghost" onclick="closeModal('usage')" data-k="취소" data-v="Hủy"></button>
+    <button class="btn btn-primary" onclick="saveUsage()" data-k="등록" data-v="Đăng ký"></button>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="modal-ng" hidden>
+<div class="modal">
+  <div class="modal-head"><h2 data-k="⚠️ NG 등록" data-v="⚠️ Đăng ký NG"></h2><button class="modal-close" onclick="closeModal('ng')">✕</button></div>
+  <div class="modal-body">
+    <div class="field2"><label data-k="발주번호 *" data-v="Số ĐH *"></label><select id="ng-order"></select></div>
+    <div class="fields-3">
+      <div class="field2"><label data-k="NG수량 *" data-v="SL NG *"></label><input id="ng-qty" type="number" min="1"></div>
+      <div class="field2"><label data-k="발생일" data-v="Ngày PS"></label><input id="ng-date" type="date"></div>
+      <div class="field2"><label data-k="담당자" data-v="Người PT"></label><input id="ng-worker"></div>
+    </div>
+    <div class="fields-2">
+      <div class="field2"><label data-k="원인" data-v="Nguyên nhân"></label>
+        <select id="ng-cause">
+          <option>가공 불량</option><option>소재 불량</option><option>치수 오차</option>
+          <option>표면처리 불량</option><option>설계 변경</option><option>기타</option>
+        </select>
+      </div>
+      <div class="field2"><label data-k="추가발주" data-v="Đặt thêm"></label>
+        <select id="ng-reorder"><option value="no" data-k="불필요" data-v="Không cần">불필요</option><option value="yes" data-k="필요" data-v="Cần thiết">필요</option></select>
+      </div>
+    </div>
+    <div class="sec-label" data-k="사진" data-v="Ảnh"></div>
+    <div class="photo-grid" id="ng-photos">
+      <div class="photo-add" onclick="document.getElementById('ng-photo-input').click()">+</div>
+      <input type="file" id="ng-photo-input" accept="image/*" multiple style="display:none" onchange="addPhotos('ng-photos',this)">
+    </div>
+    <div class="field2"><label data-k="비고" data-v="Ghi chú"></label><input id="ng-note"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn btn-ghost" onclick="closeModal('ng')" data-k="취소" data-v="Hủy"></button>
+    <button class="btn btn-primary" onclick="saveNg()" data-k="등록" data-v="Đăng ký"></button>
+  </div>
+</div></div>
+
+<div class="modal-bg" id="modal-supplier" hidden>
+<div class="modal">
+  <div class="modal-head"><h2 data-k="🏭 공급업체 등록" data-v="🏭 Thêm NCC"></h2><button class="modal-close" onclick="closeModal('supplier')">✕</button></div>
+  <div class="modal-body">
+    <div class="fields-2">
+      <div class="field2"><label data-k="업체명 *" data-v="Tên công ty *"></label><input id="s-name"></div>
+      <div class="field2"><label data-k="국가" data-v="Quốc gia"></label><input id="s-country" placeholder="한국/Vietnam/일본"></div>
+    </div>
+    <div class="fields-2">
+      <div class="field2"><label data-k="담당자" data-v="Người LH"></label><input id="s-contact"></div>
+      <div class="field2"><label data-k="연락처" data-v="SĐT"></label><input id="s-phone"></div>
+    </div>
+    <div class="field2"><label data-k="취급소재" data-v="Vật liệu"></label><input id="s-materials"></div>
+    <div class="field2"><label data-k="비고" data-v="Ghi chú"></label><input id="s-note"></div>
+  </div>
+  <div class="modal-foot">
+    <button class="btn btn-ghost" onclick="closeModal('supplier')" data-k="취소" data-v="Hủy"></button>
+    <button class="btn btn-primary" onclick="saveSupplier()" data-k="등록" data-v="Đăng ký"></button>
+  </div>
+</div></div>
+
+<div class="photo-viewer" id="photo-viewer" hidden onclick="this.hidden=true">
+  <img id="photo-viewer-img" src="" alt="">
+</div>
+
+<script>
+const SUPABASE_URL = 'https://romwubypgqjcxudrkniu.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJvbXd1YnlwZ3FqY3h1ZHJrbml1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI4MDYxMjQsImV4cCI6MjEwODM4MjEyNH0.yN-00WfvWaw7WQpvYagQUmIcPTzt7z24sSlOqBItsE0';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let currentUser = null;
+let currentProfile = null;
+let lang = localStorage.getItem('jsh_lang') || 'k';
+const activeDates = { orders: null, usage: null, ng: null };
+const tempPhotos = {};
+
+// ── AUTH ──
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => t.classList.toggle('active', (tab==='login'&&i===0)||(tab==='signup'&&i===1)));
+  document.getElementById('login-form').style.display = tab==='login'?'':'none';
+  document.getElementById('signup-form').style.display = tab==='signup'?'':'none';
+  hideAuthMsg();
+}
+function showAuthMsg(msg, type='err') {
+  const el = document.getElementById('auth-msg');
+  el.textContent = msg; el.className = 'auth-msg '+type; el.style.display = '';
+}
+function hideAuthMsg() { document.getElementById('auth-msg').style.display = 'none'; }
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw = document.getElementById('login-pw').value;
+  if (!email||!pw) { showAuthMsg('이메일과 비밀번호를 입력해주세요'); return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) { showAuthMsg('로그인 실패: ' + error.message); return; }
+}
+
+async function doSignup() {
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pw = document.getElementById('signup-pw').value;
+  if (!name||!email||!pw) { showAuthMsg('모든 항목을 입력해주세요'); return; }
+  if (pw.length < 8) { showAuthMsg('비밀번호는 8자 이상이어야 합니다'); return; }
+  const { error } = await sb.auth.signUp({ email, password: pw, options: { data: { name } } });
+  if (error) { showAuthMsg('가입 실패: ' + error.message); return; }
+  showAuthMsg('가입 신청 완료! 관리자 승인 후 로그인 가능합니다.', 'ok');
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null; currentProfile = null;
+  document.getElementById('auth-screen').style.display = '';
+  document.getElementById('pending-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display = 'none';
+}
+
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (!session) {
+    document.getElementById('auth-screen').style.display = '';
+    document.getElementById('pending-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'none';
+    return;
+  }
+  currentUser = session.user;
+  // load profile
+  const { data: prof } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = prof;
+  document.getElementById('auth-screen').style.display = 'none';
+  if (!prof || prof.role === 'pending') {
+    document.getElementById('pending-screen').style.display = '';
+    document.getElementById('app-screen').style.display = 'none';
+  } else {
+    document.getElementById('pending-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'none'; // handled below
+    initApp();
+  }
+});
+
+async function initApp() {
+  document.getElementById('app-screen').style.display = '';
+  document.getElementById('nav-username').textContent = currentProfile.name || currentProfile.email;
+  document.getElementById('nav-role').textContent = currentProfile.role === 'admin' ? '👑 관리자' : '일반 사용자';
+  if (currentProfile.role === 'admin') {
+    document.getElementById('nav-admin').style.display = '';
+    checkPendingUsers();
+  }
+  applyLang();
+  await renderAll();
+}
+
+// ── LANGUAGE ──
+function L(k,v) { return lang==='k'?k:v; }
+function applyLang() {
+  document.querySelectorAll('[data-k]').forEach(el => {
+    if (el.tagName==='INPUT'||el.tagName==='SELECT'||el.tagName==='TEXTAREA') return;
+    if (el.tagName==='OPTION') { el.textContent = lang==='k'?(el.getAttribute('data-k')||el.textContent):(el.getAttribute('data-v')||el.textContent); return; }
+    if (!el.children.length) el.textContent = lang==='k'?(el.getAttribute('data-k')||el.textContent):(el.getAttribute('data-v')||el.textContent);
+  });
+  document.getElementById('lang-label').textContent = lang==='k'?'Tiếng Việt':'한국어';
+  localStorage.setItem('jsh_lang', lang);
+}
+function toggleLang() { lang = lang==='k'?'v':'k'; applyLang(); renderAll(); }
+
+// ── NAV ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  const pages = ['dashboard','orders','usage','ng','stock','suppliers','admin','alerts'];
+  const idx = pages.indexOf(id);
+  document.querySelectorAll('.nav-item')[idx]?.classList.add('active');
+  closeSidebar();
+  if (id==='admin') renderAdmin();
+}
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('open'); }
+function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); }
+
+// ── PHOTOS ──
+function addPhotos(gridId, input) {
+  if (!tempPhotos[gridId]) tempPhotos[gridId] = [];
+  Array.from(input.files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => { tempPhotos[gridId].push(e.target.result); refreshPhotoGrid(gridId); };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+function refreshPhotoGrid(gridId) {
+  const grid = document.getElementById(gridId);
+  const inputEl = grid.querySelector('input[type=file]');
+  const addDiv = grid.querySelector('.photo-add');
+  grid.innerHTML = '';
+  (tempPhotos[gridId]||[]).forEach((src,i) => {
+    const d = document.createElement('div'); d.className='photo-thumb';
+    d.innerHTML=`<img src="${src}" onclick="viewPhoto('${src}')"><button class="del" onclick="removePhoto('${gridId}',${i})">✕</button>`;
+    grid.appendChild(d);
+  });
+  if(addDiv) grid.appendChild(addDiv);
+  if(inputEl) grid.appendChild(inputEl);
+}
+function removePhoto(gridId,idx) { tempPhotos[gridId].splice(idx,1); refreshPhotoGrid(gridId); }
+function viewPhoto(src) { document.getElementById('photo-viewer-img').src=src; document.getElementById('photo-viewer').hidden=false; }
+function renderPhotoMinis(photos) {
+  if(!photos||!photos.length) return '<span style="color:var(--fg3);font-size:11px">-</span>';
+  return photos.map(src=>`<img src="${src}" onclick="viewPhoto('${src}')" style="width:34px;height:34px;border-radius:5px;object-fit:cover;cursor:pointer;border:1px solid var(--border);margin-right:3px;">`).join('');
+}
+
+// ── HELPERS ──
+function th(cols) { return cols.map(c=>`<th>${c}</th>`).join(''); }
+function formatDate(d) {
+  if(!d) return '-';
+  const dt = new Date(d+'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((dt-today)/86400000);
+  const days = lang==='k'?['일','월','화','수','목','금','토']:['CN','T2','T3','T4','T5','T6','T7'];
+  const label = `${d.slice(5).replace('-','/')} (${days[dt.getDay()]})`;
+  if(diff===0) return (lang==='k'?'오늘 ':'Hôm nay ')+label;
+  if(diff===-1) return (lang==='k'?'어제 ':'Hôm qua ')+label;
+  return label;
+}
+function buildDateTabs(items, page) {
+  const dates=[...new Set(items.map(x=>x.date).filter(Boolean))].sort().reverse();
+  const today=new Date().toISOString().slice(0,10);
+  const c=document.getElementById(page+'-date-tabs');
+  c.innerHTML=dates.map(d=>{
+    const isToday=d===today, isActive=activeDates[page]===d;
+    return `<div class="date-tab${isToday?' today':''}${isActive?' active':''}" onclick="setDate('${page}','${d}')">${formatDate(d)}</div>`;
+  }).join('');
+}
+function setDate(page,date) { activeDates[page]=activeDates[page]===date?null:date; renderAll(); }
+function filterByDate(items,page) { return activeDates[page]?items.filter(x=>x.date===activeDates[page]):items; }
+
+const statusLabel = s => ({'진행중':L('진행중','Đang xử lý'),'완료':L('완료','Hoàn thành'),'NG발생':L('NG발생','Phát sinh NG')}[s]||s);
+const statusBadge = s => { const m={'진행중':'badge-blue','완료':'badge-ok','NG발생':'badge-danger'}; return `<span class="badge ${m[s]||'badge-gray'}">${statusLabel(s)}</span>`; };
+const overBadge = r => { if(r<=1.2) return `<span class="badge badge-ok">×${r.toFixed(1)}</span>`; if(r<=2.0) return `<span class="badge badge-warn">×${r.toFixed(1)}</span>`; return `<span class="badge badge-danger">×${r.toFixed(1)}</span>`; };
+const stockBar = (rem,ord) => { if(!ord)return''; const pct=Math.max(0,Math.min(100,(rem/ord)*100)); const c=pct>30?'var(--ok)':pct>10?'var(--warn)':'var(--danger)'; return `<div class="progress"><div class="progress-fill" style="width:${pct}%;background:${c}"></div></div>`; };
+
+// ── DATA (Supabase) ──
+let cache = { orders:[], usage:[], ng:[], suppliers:[] };
+
+async function fetchAll() {
+  const [o,u,n,s] = await Promise.all([
+    sb.from('orders').select('*').order('created_at',{ascending:false}),
+    sb.from('usages').select('*').order('created_at',{ascending:false}),
+    sb.from('ngs').select('*').order('created_at',{ascending:false}),
+    sb.from('suppliers').select('*').order('name'),
+  ]);
+  cache.orders = o.data||[];
+  cache.usage = u.data||[];
+  cache.ng = n.data||[];
+  cache.suppliers = s.data||[];
+}
+
+const orderUsed = id => cache.usage.filter(u=>u.order_id===id).reduce((a,u)=>a+u.qty,0);
+const orderNg   = id => cache.ng.filter(n=>n.order_id===id).reduce((a,n)=>a+n.qty,0);
+const remaining = o => o.ordered - orderUsed(o.id) - orderNg(o.id);
+const overRate  = o => o.needed ? o.ordered/o.needed : 1;
+const orderStatus = o => {
+  if(cache.ng.filter(n=>n.order_id===o.id&&n.reorder==='yes').length) return 'NG발생';
+  if(remaining(o)<=0) return '완료';
+  return '진행중';
+};
+const supName = id => { const s=cache.suppliers.find(x=>x.id===id); return s?`<span class="sup-chip">🏭 ${s.name}</span>`:'<span style="color:var(--fg3)">-</span>'; };
+
+async function nextSeq() {
+  const { data } = await sb.from('seq').select('val').eq('id',1).single();
+  const val = (data?.val||0)+1;
+  await sb.from('seq').update({val}).eq('id',1);
+  return 'PO-'+String(val).padStart(4,'0');
+}
+
+// ── MODALS ──
+function openModal(type, data={}) {
+  const today = new Date().toISOString().slice(0,10);
+  if(type==='order'){
+    ['o-partno','o-matname','o-requester','o-lot','o-origin','o-note'].forEach(id=>document.getElementById(id).value='');
+    ['o-ordered','o-needed','o-price'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('o-cat').value=''; document.getElementById('o-date').value=today;
+    const sel=document.getElementById('o-supplier');
+    sel.innerHTML=`<option value="">-- ${L('선택','Chọn')} --</option>`+cache.suppliers.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    tempPhotos['o-photos']=[]; refreshPhotoGrid('o-photos');
+  }
+  if(type==='usage'){
+    populateOrderSel('u-order',data.orderId);
+    ['u-qty','u-worker','u-note'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('u-date').value=today;
+    tempPhotos['u-photos']=[]; refreshPhotoGrid('u-photos');
+  }
+  if(type==='ng'){
+    populateOrderSel('ng-order',data.orderId);
+    ['ng-qty','ng-worker','ng-note'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('ng-date').value=today; document.getElementById('ng-reorder').value='no';
+    tempPhotos['ng-photos']=[]; refreshPhotoGrid('ng-photos');
+  }
+  if(type==='supplier'){
+    ['s-name','s-country','s-contact','s-phone','s-materials','s-note'].forEach(id=>document.getElementById(id).value='');
+  }
+  document.getElementById('modal-'+type).hidden=false;
+}
+function closeModal(type){ document.getElementById('modal-'+type).hidden=true; }
+function populateOrderSel(selId,preselect){
+  const sel=document.getElementById(selId);
+  sel.innerHTML=cache.orders.map(o=>`<option value="${o.id}">${o.id} — ${o.partno} (${o.matname})</option>`).join('')||`<option>${L('발주 없음','Chưa có đơn')}</option>`;
+  if(preselect) sel.value=preselect;
+}
+
+// ── SAVE ──
+async function saveOrder(){
+  const partno=document.getElementById('o-partno').value.trim();
+  const cat=document.getElementById('o-cat').value;
+  const mat=document.getElementById('o-matname').value.trim();
+  const ord=parseInt(document.getElementById('o-ordered').value);
+  const ned=parseInt(document.getElementById('o-needed').value);
+  if(!partno||!cat||!mat||!ord||!ned){showToast(L('필수 항목 입력 필요','Vui lòng điền đủ'),'warn');return;}
+  const id=await nextSeq();
+  const { error } = await sb.from('orders').insert({
+    id, partno, cat, matname:mat, ordered:ord, needed:ned,
+    requester:document.getElementById('o-requester').value.trim(),
+    date:document.getElementById('o-date').value,
+    price:parseFloat(document.getElementById('o-price').value)||0,
+    supplier_id:document.getElementById('o-supplier').value||null,
+    lot:document.getElementById('o-lot').value.trim(),
+    origin:document.getElementById('o-origin').value.trim(),
+    note:document.getElementById('o-note').value.trim(),
+    photos:tempPhotos['o-photos']||[],
+    created_by:currentUser.id
+  });
+  if(error){showToast('오류: '+error.message,'warn');return;}
+  closeModal('order'); await fetchAll(); renderAll(); showToast(L('발주 등록 완료 ✓','Đăng ký thành công ✓'),'ok');
+}
+
+async function saveUsage(){
+  const orderId=document.getElementById('u-order').value;
+  const qty=parseInt(document.getElementById('u-qty').value);
+  if(!orderId||!qty){showToast(L('수량 입력 필요','Vui lòng nhập SL'),'warn');return;}
+  const usageId='U-'+Date.now();
+  const { error } = await sb.from('usages').insert({
+    id:usageId, order_id:orderId, qty,
+    date:document.getElementById('u-date').value,
+    worker:document.getElementById('u-worker').value.trim(),
+    note:document.getElementById('u-note').value.trim(),
+    photos:tempPhotos['u-photos']||[],
+    created_by:currentUser.id
+  });
+  if(error){showToast('오류: '+error.message,'warn');return;}
+  closeModal('usage'); await fetchAll(); renderAll(); showToast(L('사용 등록 완료 ✓','Đăng ký SD thành công ✓'),'ok');
+}
+
+async function saveNg(){
+  const orderId=document.getElementById('ng-order').value;
+  const qty=parseInt(document.getElementById('ng-qty').value);
+  if(!orderId||!qty){showToast(L('수량 입력 필요','Vui lòng nhập SL'),'warn');return;}
+  const reorder=document.getElementById('ng-reorder').value;
+  const ngId='NG-'+Date.now();
+  const { error } = await sb.from('ngs').insert({
+    id:ngId, order_id:orderId, qty, reorder,
+    date:document.getElementById('ng-date').value,
+    cause:document.getElementById('ng-cause').value,
+    worker:document.getElementById('ng-worker').value.trim(),
+    note:document.getElementById('ng-note').value.trim(),
+    status:'처리중', photos:tempPhotos['ng-photos']||[],
+    created_by:currentUser.id
+  });
+  if(error){showToast('오류: '+error.message,'warn');return;}
+  if(reorder==='yes'){
+    const orig=cache.orders.find(o=>o.id===orderId);
+    if(orig){
+      const newId=await nextSeq();
+      await sb.from('orders').insert({...orig,id:newId,ordered:qty,needed:qty,date:document.getElementById('ng-date').value,note:'NG 추가발주 (원본:'+orderId+')',photos:[],created_by:currentUser.id});
+    }
+  }
+  closeModal('ng'); await fetchAll(); renderAll(); showToast(L('NG 등록 완료 ✓','Đăng ký NG thành công ✓'),'ok');
+}
+
+async function saveSupplier(){
+  const name=document.getElementById('s-name').value.trim();
+  if(!name){showToast(L('업체명 입력 필요','Vui lòng nhập tên'),'warn');return;}
+  const id='S-'+Date.now();
+  const { error } = await sb.from('suppliers').insert({
+    id, name,
+    country:document.getElementById('s-country').value.trim(),
+    contact:document.getElementById('s-contact').value.trim(),
+    phone:document.getElementById('s-phone').value.trim(),
+    materials:document.getElementById('s-materials').value.trim(),
+    note:document.getElementById('s-note').value.trim()
+  });
+  if(error){showToast('오류: '+error.message,'warn');return;}
+  closeModal('supplier'); await fetchAll(); renderAll(); showToast(L('업체 등록 완료 ✓','Đăng ký NCC thành công ✓'),'ok');
+}
+
+async function deleteOrder(id){ if(!confirm(L('정말 삭제?','Xác nhận xóa?'))) return; await sb.from('orders').delete().eq('id',id); await fetchAll(); renderAll(); }
+
+// ── RENDER ──
+async function renderAll(){
+  renderDashboard(); renderOrders(); renderUsage(); renderNg(); renderStock(); renderSuppliers(); renderAlerts();
+  applyLang();
+}
+
+function renderDashboard(){
+  const fd=document.getElementById('dash-date')?.value;
+  const orders=fd?cache.orders.filter(o=>o.date===fd):cache.orders;
+  const ngs=fd?cache.ng.filter(n=>n.date===fd):cache.ng;
+  const usages=fd?cache.usage.filter(u=>u.date===fd):cache.usage;
+  const over=orders.filter(o=>overRate(o)>1.5).length;
+  document.getElementById('stats-row').innerHTML=`
+    <div class="stat-card"><div class="stat-label">${L('총 발주','Tổng ĐH')}</div><div class="stat-value">${orders.length}</div><div class="stat-note">${L('건','đơn')}</div></div>
+    <div class="stat-card ${over>0?'stat-warn':'stat-ok'}"><div class="stat-label">${L('과발주','Đặt thừa')}</div><div class="stat-value">${over}</div></div>
+    <div class="stat-card ${ngs.length>0?'stat-danger':'stat-ok'}"><div class="stat-label">NG</div><div class="stat-value">${ngs.length}</div></div>
+    <div class="stat-card"><div class="stat-label">${L('사용량','Sử dụng')}</div><div class="stat-value">${usages.reduce((a,u)=>a+u.qty,0)}</div><div class="stat-note">pcs</div></div>
+  `;
+  const alerts=buildAlerts();
+  document.getElementById('dash-alerts').innerHTML=alerts.slice(0,3).map(a=>`<div class="alert-banner ${a.level}">${a.level==='danger'?'🚨':'⚠️'} ${a.msg}</div>`).join('');
+  document.getElementById('dash-thead').innerHTML=th([L('발주번호','Số ĐH'),L('품번','Mã SP'),L('소재','Vật liệu'),L('공급업체','NCC'),L('발주','ĐH'),L('사용','SD'),L('잔여','Còn'),L('상태','TT'),L('날짜','Ngày')]);
+  const recent=orders.slice(0,8);
+  document.getElementById('dash-table').innerHTML=recent.length?recent.map(o=>`<tr>
+    <td style="color:var(--accent);font-weight:600">${o.id}</td>
+    <td><strong>${o.partno}</strong></td>
+    <td>${o.matname}</td>
+    <td>${supName(o.supplier_id)}</td>
+    <td>${o.ordered}</td><td>${orderUsed(o.id)}</td>
+    <td style="font-weight:700;color:${remaining(o)<=0?'var(--fg3)':'var(--ok)'}">${remaining(o)}</td>
+    <td>${statusBadge(orderStatus(o))}</td>
+    <td style="color:var(--fg2)">${o.date||'-'}</td>
+  </tr>`).join(''):`<tr><td colspan="9"><div class="empty-state"><div class="icon">📋</div><p>${L('발주 없음','Chưa có đơn')}</p></div></td></tr>`;
+}
+
+function renderOrders(){
+  const search=(document.getElementById('order-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('order-cat')?.value||'';
+  let items=cache.orders.filter(o=>{
+    if(search&&!o.partno?.toLowerCase().includes(search)&&!o.matname?.toLowerCase().includes(search)) return false;
+    if(cat&&o.cat!==cat) return false;
+    return true;
+  });
+  buildDateTabs(items,'orders');
+  items=filterByDate(items,'orders');
+  document.getElementById('orders-thead').innerHTML=th([L('발주번호','Số ĐH'),L('품번','Mã SP'),L('카테고리','Loại'),L('소재명','Vật liệu'),L('공급업체','NCC'),L('LOT','LOT'),L('발주','ĐH'),L('필요','Cần'),L('사용','SD'),L('잔여','Còn'),L('과발주','Vượt'),L('상태','TT'),L('발주일','Ngày'),L('사진','Ảnh'),L('액션','TT')]);
+  const tbody=document.getElementById('orders-table');
+  tbody.innerHTML=items.length?items.map(o=>`<tr>
+    <td style="color:var(--accent);font-weight:600">${o.id}</td>
+    <td><strong>${o.partno}</strong></td>
+    <td><span class="badge badge-gray" style="font-size:10px">${o.cat}</span></td>
+    <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.matname}</td>
+    <td>${supName(o.supplier_id)}</td>
+    <td style="font-size:11px;color:var(--fg2)">${o.lot||'-'}</td>
+    <td>${o.ordered}</td><td>${o.needed}</td><td>${orderUsed(o.id)}</td>
+    <td style="font-weight:700;color:${remaining(o)<=0?'var(--fg3)':'var(--ok)'}">${remaining(o)}</td>
+    <td>${overBadge(overRate(o))}</td>
+    <td>${statusBadge(orderStatus(o))}</td>
+    <td style="color:var(--fg2);white-space:nowrap">${o.date||'-'}</td>
+    <td>${renderPhotoMinis(o.photos)}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="openModal('usage',{orderId:'${o.id}'})">${L('사용','SD')}</button>
+      <button class="btn btn-ghost btn-sm" onclick="openModal('ng',{orderId:'${o.id}'})">NG</button>
+      <button class="btn-icon" onclick="deleteOrder('${o.id}')">🗑</button>
+    </td>
+  </tr>`).join(''):`<tr><td colspan="15"><div class="empty-state"><div class="icon">📋</div><p>${L('발주 없음','Chưa có đơn')}</p></div></td></tr>`;
+}
+
+function renderUsage(){
+  const items=cache.usage;
+  buildDateTabs(items,'usage');
+  const filtered=filterByDate(items,'usage');
+  document.getElementById('usage-thead').innerHTML=th([L('날짜','Ngày'),L('발주번호','Số ĐH'),L('품번','Mã SP'),L('공급업체','NCC'),L('사용량','SL SD'),L('작업자','Người TH'),L('사진','Ảnh'),L('비고','Ghi chú')]);
+  document.getElementById('usage-table').innerHTML=filtered.length?filtered.map(u=>{
+    const o=cache.orders.find(x=>x.id===u.order_id)||{};
+    return `<tr>
+      <td style="color:var(--fg2);white-space:nowrap">${u.date||'-'}</td>
+      <td style="color:var(--accent)">${u.order_id}</td>
+      <td><strong>${o.partno||'-'}</strong></td>
+      <td>${supName(o.supplier_id)}</td>
+      <td style="font-weight:700">${u.qty} pcs</td>
+      <td>${u.worker||'-'}</td>
+      <td>${renderPhotoMinis(u.photos)}</td>
+      <td style="color:var(--fg2)">${u.note||'-'}</td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="8"><div class="empty-state"><div class="icon">🔧</div><p>${L('사용 이력 없음','Chưa có lịch sử')}</p></div></td></tr>`;
+}
+
+function renderNg(){
+  const items=cache.ng;
+  buildDateTabs(items,'ng');
+  const filtered=filterByDate(items,'ng');
+  document.getElementById('ng-thead').innerHTML=th([L('날짜','Ngày'),L('발주번호','Số ĐH'),L('품번','Mã SP'),L('공급업체','NCC'),L('NG수량','SL NG'),L('원인','NN'),L('추가발주','Đặt thêm'),L('담당자','Người PT'),L('사진','Ảnh'),L('상태','TT')]);
+  document.getElementById('ng-table').innerHTML=filtered.length?filtered.map(n=>{
+    const o=cache.orders.find(x=>x.id===n.order_id)||{};
+    return `<tr>
+      <td style="color:var(--fg2);white-space:nowrap">${n.date||'-'}</td>
+      <td style="color:var(--accent)">${n.order_id}</td>
+      <td><strong>${o.partno||'-'}</strong></td>
+      <td>${supName(o.supplier_id)}</td>
+      <td style="font-weight:700;color:var(--danger)">${n.qty} pcs</td>
+      <td><span class="badge badge-danger">${n.cause}</span></td>
+      <td>${n.reorder==='yes'?`<span class="badge badge-warn">${L('추가발주','Đặt thêm')}</span>`:`<span class="badge badge-gray">${L('불필요','Không cần')}</span>`}</td>
+      <td>${n.worker||'-'}</td>
+      <td>${renderPhotoMinis(n.photos)}</td>
+      <td><span class="badge ${n.status==='완료'?'badge-ok':'badge-warn'}">${n.status}</span></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="10"><div class="empty-state"><div class="icon">✅</div><p>${L('NG 없음','Không có NG')}</p></div></td></tr>`;
+}
+
+function renderStock(){
+  document.getElementById('stock-thead').innerHTML=th([L('발주번호','Số ĐH'),L('품번','Mã SP'),L('소재명','Vật liệu'),L('공급업체','NCC'),L('발주','ĐH'),L('사용','SD'),L('NG','NG'),L('잔여','Còn'),L('재고율','Tỉ lệ')]);
+  document.getElementById('stock-table').innerHTML=cache.orders.length?cache.orders.map(o=>{
+    const used=orderUsed(o.id),ng=orderNg(o.id),rem=remaining(o);
+    return `<tr>
+      <td style="color:var(--accent)">${o.id}</td>
+      <td><strong>${o.partno}</strong></td>
+      <td>${o.matname}</td>
+      <td>${supName(o.supplier_id)}</td>
+      <td>${o.ordered}</td><td>${used}</td>
+      <td style="color:var(--danger)">${ng}</td>
+      <td style="font-weight:700;color:${rem<=0?'var(--fg3)':rem<2?'var(--warn)':'var(--ok)'}">${rem}</td>
+      <td>${stockBar(rem,o.ordered)} <span style="font-size:10px;color:var(--fg3)">${Math.round((rem/o.ordered||0)*100)}%</span></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="9"><div class="empty-state"><div class="icon">📦</div><p>${L('재고 없음','Chưa có tồn kho')}</p></div></td></tr>`;
+}
+
+function renderSuppliers(){
+  document.getElementById('sup-thead').innerHTML=th([L('업체명','Tên NCC'),L('국가','Quốc gia'),L('담당자','Người LH'),L('연락처','SĐT'),L('취급소재','Vật liệu'),L('발주이력','ĐH LQ'),L('비고','Ghi chú'),L('액션','TT')]);
+  document.getElementById('sup-table').innerHTML=cache.suppliers.length?cache.suppliers.map(s=>{
+    const cnt=cache.orders.filter(o=>o.supplier_id===s.id).length;
+    return `<tr>
+      <td><strong>${s.name}</strong></td>
+      <td>${s.country||'-'}</td><td>${s.contact||'-'}</td>
+      <td style="font-size:12px">${s.phone||'-'}</td>
+      <td style="font-size:11.5px;color:var(--fg2)">${s.materials||'-'}</td>
+      <td><span class="badge badge-blue">${cnt}${L('건','đơn')}</span></td>
+      <td style="color:var(--fg2);font-size:12px">${s.note||'-'}</td>
+      <td><button class="btn-icon" onclick="deleteSupplier('${s.id}')">🗑</button></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="8"><div class="empty-state"><div class="icon">🏭</div><p>${L('공급업체 없음','Chưa có NCC')}</p></div></td></tr>`;
+}
+async function deleteSupplier(id){ if(!confirm(L('정말 삭제?','Xác nhận xóa?'))) return; await sb.from('suppliers').delete().eq('id',id); await fetchAll(); renderAll(); }
+
+function buildAlerts(){
+  const alerts=[];
+  cache.orders.forEach(o=>{
+    const r=overRate(o);
+    if(r>2.0) alerts.push({level:'danger',msg:`${o.id} [${o.partno}] — ${L('과발주 심각','Đặt thừa nghiêm trọng')} ×${r.toFixed(1)}`});
+    else if(r>1.5) alerts.push({level:'warn',msg:`${o.id} [${o.partno}] — ${L('과발주 주의','Chú ý đặt thừa')} ×${r.toFixed(1)}`});
+  });
+  cache.ng.filter(n=>n.reorder==='yes'&&n.status==='처리중').forEach(n=>{
+    const o=cache.orders.find(x=>x.id===n.order_id)||{};
+    alerts.push({level:'danger',msg:`${L('NG 추가발주 대기','Chờ đặt thêm NG')} — ${n.order_id} [${o.partno||'-'}] ${n.qty}pcs`});
+  });
+  return alerts;
+}
+function renderAlerts(){
+  const alerts=buildAlerts();
+  const badge=document.getElementById('alert-badge');
+  badge.style.display=alerts.length?'':'none'; badge.textContent=alerts.length;
+  document.getElementById('alerts-list').innerHTML=alerts.length?alerts.map(a=>`<div class="alert-banner ${a.level}">${a.level==='danger'?'🚨':'⚠️'} ${a.msg}</div>`).join(''):`<div class="card"><div class="empty-state"><div class="icon">✅</div><p>${L('이상 없음','Không có cảnh báo')}</p></div></div>`;
+}
+
+// ── ADMIN ──
+async function checkPendingUsers(){
+  const { data } = await sb.from('profiles').select('*').eq('role','pending');
+  const badge=document.getElementById('admin-badge');
+  if(data&&data.length){ badge.style.display=''; badge.textContent=data.length; }
+  else badge.style.display='none';
+}
+
+async function renderAdmin(){
+  const { data } = await sb.from('profiles').select('*').order('created_at');
+  document.getElementById('admin-table').innerHTML=data?.length?data.map(p=>`<tr>
+    <td><strong>${p.name||'-'}</strong></td>
+    <td style="color:var(--fg2)">${p.email}</td>
+    <td>${p.role==='admin'?'<span class="badge badge-warn">👑 관리자</span>':p.role==='user'?'<span class="badge badge-ok">✓ 승인</span>':'<span class="badge badge-gray">⏳ 대기</span>'}</td>
+    <td style="color:var(--fg2);font-size:12px">${p.created_at?.slice(0,10)||'-'}</td>
+    <td>${p.role==='pending'?`<button class="admin-approve-btn" onclick="approveUser('${p.id}')">✓ 승인</button><button class="admin-reject-btn" onclick="rejectUser('${p.id}')">✕ 거절</button>`:p.role==='user'?`<button class="admin-approve-btn" onclick="setRole('${p.id}','admin')" style="background:var(--warn)">👑 관리자로</button>`:'-'}</td>
+  </tr>`).join(''):`<tr><td colspan="5"><div class="empty-state"><p>가입 신청 없음</p></div></td></tr>`;
+}
+async function approveUser(id){ await sb.from('profiles').update({role:'user'}).eq('id',id); renderAdmin(); checkPendingUsers(); showToast('승인 완료 ✓','ok'); }
+async function rejectUser(id){ if(!confirm('거절하면 계정이 삭제됩니다. 계속?')) return; await sb.from('profiles').delete().eq('id',id); await sb.auth.admin?.deleteUser(id).catch(()=>{}); renderAdmin(); checkPendingUsers(); showToast('거절 완료','warn'); }
+async function setRole(id,role){ await sb.from('profiles').update({role}).eq('id',id); renderAdmin(); showToast('역할 변경 완료 ✓','ok'); }
+
+// ── TOAST ──
+function showToast(msg,type='ok'){
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';t.style.cssText='position:fixed;bottom:24px;right:24px;padding:11px 18px;border-radius:9px;font-size:13px;font-weight:700;z-index:9999;opacity:0;transition:opacity .25s;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:300px';document.body.appendChild(t);}
+  const c={ok:'background:#16a34a;color:#fff',warn:'background:#d97706;color:#fff',danger:'background:#dc2626;color:#fff'};
+  Object.assign(t.style,{[c[type]?.split(':')[0]]:c[type]?.split(':')[1]});
+  t.style.cssText+=';'+(c[type]||c.ok); t.textContent=msg; t.style.opacity='1';
+  clearTimeout(t._t); t._t=setTimeout(()=>t.style.opacity='0',2800);
+}
+</script>
+</body>
+</html>
